@@ -1,0 +1,56 @@
+"""Exercise 4.14: Select a webcam classifier with if/elif branches."""
+
+import argparse
+
+import cv2
+import numpy as np
+from classification_models.keras import Classifiers
+from tensorflow.keras.applications.imagenet_utils import decode_predictions
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", choices=("vgg16", "resnet50", "mobilenetv2", "densenet201", "inceptionv3"), default="vgg16")
+    args = parser.parse_args()
+
+    if args.model == "vgg16":
+        image_size = 224
+        classifier, preprocess = Classifiers.get("vgg16")
+    elif args.model == "resnet50":
+        image_size = 224
+        classifier, preprocess = Classifiers.get("resnet50")
+    elif args.model == "mobilenetv2":
+        image_size = 224
+        classifier, preprocess = Classifiers.get("mobilenetv2")
+    elif args.model == "densenet201":
+        image_size = 224
+        classifier, preprocess = Classifiers.get("densenet201")
+    else:
+        image_size = 299
+        classifier, preprocess = Classifiers.get("inceptionv3")
+
+    model = classifier(input_shape=(image_size, image_size, 3), weights="imagenet", classes=1000)
+    camera = cv2.VideoCapture(0)
+    if not camera.isOpened():
+        raise RuntimeError("Could not open the webcam")
+    try:
+        while True:
+            ok, frame = camera.read()
+            if not ok:
+                break
+            resized = cv2.resize(frame, (image_size, image_size))
+            batch = preprocess(np.expand_dims(np.asarray(resized), axis=0))
+            predictions = model.predict(batch, verbose=0)
+            name, confidence = decode_predictions(predictions, top=1)[0][0][1:]
+            cv2.putText(frame, f"{args.model}: {name}, {confidence:.1%}", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            cv2.imshow("Classification", frame)
+            if cv2.waitKey(30) == 27:
+                break
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
